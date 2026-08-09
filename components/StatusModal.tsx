@@ -17,6 +17,7 @@ export default function StatusModal({
   const setStatus = useStore((s) => s.setStatus);
 
   const [type, setType] = useState<EquipmentStatusType>(equipment.status.type);
+  const [issue, setIssue] = useState(equipment.status.issue ?? "");
   const [repairStart, setRepairStart] = useState(
     equipment.status.repairStart ?? new Date().toISOString().slice(0, 10)
   );
@@ -26,9 +27,10 @@ export default function StatusModal({
     if (type === "operational") {
       setStatus(areaId, equipment.id, { type: "operational" });
     } else {
-      if (!repairStart || !repairEnd) return;
+      if (!issue.trim() || !repairStart || !repairEnd) return;
       setStatus(areaId, equipment.id, {
         type: "repair",
+        issue: issue.trim(),
         repairStart,
         repairEnd,
       });
@@ -63,7 +65,18 @@ export default function StatusModal({
         </div>
 
         {type === "repair" && (
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2">
+            <label className="text-xs text-sky-600">
+              Неисправность
+              <input
+                type="text"
+                value={issue}
+                onChange={(e) => setIssue(e.target.value)}
+                placeholder="Опишите неисправность"
+                className="mt-1 w-full rounded-lg border border-sky-200 px-2 py-1.5 text-sm outline-none focus:border-sky-500"
+              />
+            </label>
+            <div className="flex gap-2">
             <label className="flex-1 text-xs text-sky-600">
               Начало ремонта
               <input
@@ -82,12 +95,13 @@ export default function StatusModal({
                 className="mt-1 w-full rounded-lg border border-sky-200 px-2 py-1.5 text-sm outline-none focus:border-sky-500"
               />
             </label>
+            </div>
           </div>
         )}
 
         <button
           onClick={handleSave}
-          disabled={type === "repair" && (!repairStart || !repairEnd)}
+          disabled={type === "repair" && (!issue.trim() || !repairStart || !repairEnd)}
           className="mt-1 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-200"
         >
           Сохранить

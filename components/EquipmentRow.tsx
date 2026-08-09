@@ -70,6 +70,7 @@ export default function EquipmentRow({
 
       <button
         onClick={() => setOpenModal("status")}
+        title={isRepair ? equipment.status.issue : undefined}
         className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
           isRepair
             ? "border-rose-300 bg-rose-100 text-rose-700"
@@ -77,7 +78,7 @@ export default function EquipmentRow({
         }`}
       >
         {isRepair
-          ? `🔧 На ремонте до ${equipment.status.repairEnd ?? "?"}`
+          ? `🔧 ${equipment.status.issue ?? "Неисправность"} · до ${equipment.status.repairEnd ?? "?"}`
           : "✅ Исправна"}
       </button>
 

@@ -18,6 +18,7 @@ export type EquipmentStatusType = "operational" | "repair";
 
 export interface EquipmentStatus {
   type: EquipmentStatusType;
+  issue?: string; // описание неисправности
   repairStart?: string; // YYYY-MM-DD
   repairEnd?: string; // YYYY-MM-DD
 }
