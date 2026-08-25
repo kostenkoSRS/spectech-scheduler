@@ -1,5 +1,5 @@
 import { weekdayOfDateKey } from "./date";
-import { PlanColumn } from "./types";
+import { Equipment, PlanColumn, PlanRow } from "./types";
 
 export function isColumnVisibleOnDate(column: PlanColumn, dateKey: string): boolean {
   switch (column.scope.type) {
@@ -10,6 +10,22 @@ export function isColumnVisibleOnDate(column: PlanColumn, dateKey: string): bool
     case "weekday":
       return weekdayOfDateKey(dateKey) === column.scope.weekday;
   }
+}
+
+// Строка видна на дату создания и на все последующие даты, но не влияет на
+// более ранние даты (которые уже прошли на момент её создания).
+export function visiblePlanRows(rows: PlanRow[], dateKey: string): PlanRow[] {
+  return rows.filter((r) => r.date <= dateKey);
+}
+
+// Техника не закрепляется вручную за конкретной строкой — она равномерно
+// (по кругу) распределяется по всем видимым строкам.
+export function assignEquipmentToRows(
+  rows: PlanRow[],
+  equipment: Equipment[]
+): (Equipment | null)[] {
+  if (equipment.length === 0) return rows.map(() => null);
+  return rows.map((_, i) => equipment[i % equipment.length]);
 }
 
 export function columnScopeLabel(column: PlanColumn): string {

@@ -33,3 +33,15 @@ export function exportSheetsToExcel(fileBaseName: string, sheets: ExcelSheet[]) 
 
   XLSX.writeFile(wb, `${sanitizeFileName(fileBaseName)}.xlsx`);
 }
+
+// Один лист, где данные из разных вкладок идут друг под другом (не по разным листам)
+export function exportRowsToExcel(
+  fileBaseName: string,
+  sheetName: string,
+  rows: Record<string, string | number>[]
+) {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ " ": "" }]);
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeSheetName(sheetName));
+  XLSX.writeFile(wb, `${sanitizeFileName(fileBaseName)}.xlsx`);
+}

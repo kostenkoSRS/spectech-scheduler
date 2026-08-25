@@ -73,3 +73,48 @@ export function shiftDateKey(key: string, days: number): string {
   d.setDate(d.getDate() + days);
   return toDateKey(d);
 }
+
+export type ExportPeriod = "day" | "week" | "month" | "year";
+
+export const EXPORT_PERIOD_LABELS: Record<ExportPeriod, string> = {
+  day: "Текущий день",
+  week: "Текущая неделя",
+  month: "Текущий месяц",
+  year: "Текущий год",
+};
+
+export function periodRange(key: string, period: ExportPeriod): { start: string; end: string } {
+  const d = parseDateKey(key);
+  switch (period) {
+    case "day":
+      return { start: key, end: key };
+    case "week": {
+      const offset = weekdayOfDateKey(key); // 0 = Пн
+      const start = shiftDateKey(key, -offset);
+      const end = shiftDateKey(start, 6);
+      return { start, end };
+    }
+    case "month": {
+      const start = toDateKey(new Date(d.getFullYear(), d.getMonth(), 1));
+      const end = toDateKey(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+      return { start, end };
+    }
+    case "year": {
+      const start = toDateKey(new Date(d.getFullYear(), 0, 1));
+      const end = toDateKey(new Date(d.getFullYear(), 11, 31));
+      return { start, end };
+    }
+  }
+}
+
+export function eachDateKeyInRange(start: string, end: string): string[] {
+  const out: string[] = [];
+  let cur = start;
+  let guard = 0;
+  while (cur <= end && guard < 400) {
+    out.push(cur);
+    cur = shiftDateKey(cur, 1);
+    guard += 1;
+  }
+  return out;
+}

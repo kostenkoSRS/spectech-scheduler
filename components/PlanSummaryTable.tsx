@@ -3,11 +3,17 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { ColumnScope } from "@/lib/types";
-import { toDateKey, WEEKDAY_NAMES } from "@/lib/date";
-import { isColumnVisibleOnDate, columnScopeLabel } from "@/lib/plan";
+import { eachDateKeyInRange, toDateKey, WEEKDAY_NAMES } from "@/lib/date";
+import {
+  assignEquipmentToRows,
+  columnScopeLabel,
+  isColumnVisibleOnDate,
+  visiblePlanRows,
+} from "@/lib/plan";
 import { equipmentStatusOnDate } from "@/lib/equipment";
-import { exportSheetsToExcel } from "@/lib/excel";
+import { exportRowsToExcel } from "@/lib/excel";
 import DateNav from "./DateNav";
+import ExportButton from "./ExportButton";
 
 type ScopeKind = "all" | "date" | "weekday";
 
@@ -38,28 +44,30 @@ export default function PlanSummaryTable() {
     setNewTitle("");
   }
 
-  function handleExport() {
-    const sheets = areas
-      .filter((a) => a.planRows.some((r) => r.date === selectedDate))
-      .map((a) => ({
-        name: a.name,
-        rows: a.planRows
-          .filter((r) => r.date === selectedDate)
-          .map((row) => {
-            const eq = a.equipment.find((e) => e.id === row.equipmentId);
-            const status = eq ? equipmentStatusOnDate(eq, selectedDate) : null;
-            const base: Record<string, string> = {
-              Дата: row.date,
-              "Спец техника": eq?.name ?? "",
-              Статус: status ? (status.broken ? `Неисправна: ${status.issue ?? ""}` : "Исправна") : "",
-            };
-            for (const col of visibleColumns) {
-              base[col.title] = row.values[col.id] ?? "";
-            }
-            return base;
-          }),
-      }));
-    exportSheetsToExcel(`Свод плана работ — ${selectedDate}`, sheets);
+  function handleExport(range: { start: string; end: string }) {
+    const exportRows: Record<string, string>[] = [];
+    for (const dateKey of eachDateKeyInRange(range.start, range.end)) {
+      const dayColumns = planColumns.filter((c) => isColumnVisibleOnDate(c, dateKey));
+      for (const area of areas) {
+        const dayRows = visiblePlanRows(area.planRows, dateKey);
+        const dayEquipment = assignEquipmentToRows(dayRows, area.equipment);
+        dayRows.forEach((row, i) => {
+          const eq = dayEquipment[i];
+          const status = eq ? equipmentStatusOnDate(eq, dateKey) : null;
+          const base: Record<string, string> = {
+            Район: area.name,
+            Дата: dateKey,
+            Техника: eq?.name ?? "",
+            Статус: status ? (status.broken ? `Неисправна: ${status.issue ?? ""}` : "Исправна") : "",
+          };
+          for (const col of dayColumns) {
+            base[col.title] = row.values[col.id] ?? "";
+          }
+          exportRows.push(base);
+        });
+      }
+    }
+    exportRowsToExcel(`Свод плана работ — ${range.start}_${range.end}`, "Свод", exportRows);
   }
 
   return (
@@ -152,12 +160,7 @@ export default function PlanSummaryTable() {
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <DateNav date={selectedDate} onChange={setSelectedDate} />
-        <button
-          onClick={handleExport}
-          className="rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-50"
-        >
-          ⬇ Выгрузить в Excel
-        </button>
+        <ExportButton referenceDate={selectedDate} onExport={handleExport} />
       </div>
 
       {areas.length === 0 ? (
@@ -167,7 +170,8 @@ export default function PlanSummaryTable() {
       ) : (
         <div className="flex flex-col gap-4">
           {areas.map((area) => {
-            const rows = area.planRows.filter((r) => r.date === selectedDate);
+            const rows = visiblePlanRows(area.planRows, selectedDate);
+            const assignedEquipment = assignEquipmentToRows(rows, area.equipment);
             return (
               <div
                 key={area.id}
@@ -183,7 +187,8 @@ export default function PlanSummaryTable() {
                     <table className="w-full min-w-[520px] text-left text-sm">
                       <thead>
                         <tr className="border-b border-sky-100 text-xs uppercase text-sky-400">
-                          <th className="px-4 py-2 font-medium">Спец техника</th>
+                          <th className="w-56 px-4 py-2 font-medium">Техника</th>
+                          <th className="w-48 px-4 py-2 font-medium">Статус</th>
                           {visibleColumns.map((col) => (
                             <th key={col.id} className="px-4 py-2 font-medium">
                               {col.title}
@@ -192,31 +197,27 @@ export default function PlanSummaryTable() {
                         </tr>
                       </thead>
                       <tbody>
-                        {rows.map((row) => {
-                          const eq = area.equipment.find((e) => e.id === row.equipmentId);
+                        {rows.map((row, i) => {
+                          const eq = assignedEquipment[i];
                           const status = eq ? equipmentStatusOnDate(eq, selectedDate) : null;
                           return (
                             <tr key={row.id} className="border-b border-sky-50 last:border-0">
-                              <td className="px-4 py-2">
-                                {eq ? (
-                                  <div>
-                                    <div className="font-medium text-sky-900">{eq.name}</div>
-                                    {status && (
-                                      <span
-                                        className={`mt-0.5 inline-block rounded-full border px-2 py-0.5 text-[11px] ${
-                                          status.broken
-                                            ? "border-rose-300 bg-rose-100 text-rose-700"
-                                            : "border-emerald-300 bg-emerald-100 text-emerald-700"
-                                        }`}
-                                      >
-                                        {status.broken
-                                          ? `🔧 ${status.issue ?? "Неисправность"}`
-                                          : "✅ Исправна"}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-sky-300">— техника не выбрана —</span>
+                              <td className="w-56 px-4 py-2 font-medium text-sky-900">
+                                {eq ? eq.name : <span className="text-sky-300">— нет техники —</span>}
+                              </td>
+                              <td className="w-48 px-4 py-2">
+                                {status && (
+                                  <span
+                                    className={`inline-block rounded-full border px-2 py-0.5 text-xs ${
+                                      status.broken
+                                        ? "border-rose-300 bg-rose-100 text-rose-700"
+                                        : "border-emerald-300 bg-emerald-100 text-emerald-700"
+                                    }`}
+                                  >
+                                    {status.broken
+                                      ? `🔧 ${status.issue ?? "Неисправность"}`
+                                      : "✅ Исправна"}
+                                  </span>
                                 )}
                               </td>
                               {visibleColumns.map((col) => (

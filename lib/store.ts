@@ -61,7 +61,6 @@ interface StoreState {
   planColumns: PlanColumn[];
 
   addPlanRow: (areaId: string, date: string) => void;
-  updatePlanRowEquipment: (areaId: string, rowId: string, equipmentId: string | null) => void;
   updatePlanRowValue: (
     areaId: string,
     rowId: string,
@@ -315,22 +314,8 @@ export const useStore = create<StoreState>()(
                   ...a,
                   planRows: [
                     ...a.planRows,
-                    { id: makeId(), date, equipmentId: null, values: {} },
+                    { id: makeId(), date, values: {} },
                   ],
-                }
-              : a
-          ),
-        })),
-
-      updatePlanRowEquipment: (areaId, rowId, equipmentId) =>
-        set((state) => ({
-          areas: state.areas.map((a) =>
-            a.id === areaId
-              ? {
-                  ...a,
-                  planRows: a.planRows.map((r) =>
-                    r.id === rowId ? { ...r, equipmentId } : r
-                  ),
                 }
               : a
           ),

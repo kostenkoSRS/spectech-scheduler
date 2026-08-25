@@ -47,8 +47,7 @@ export interface PlanColumn {
 
 export interface PlanRow {
   id: string;
-  date: string; // YYYY-MM-DD
-  equipmentId: string | null;
+  date: string; // YYYY-MM-DD, дата создания строки — строка видна на эту и все последующие даты
   values: Record<string, string>; // columnId -> значение
 }
 

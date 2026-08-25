@@ -7,6 +7,7 @@ import { exportSheetsToExcel } from "@/lib/excel";
 import { equipmentStatusOnDate } from "@/lib/equipment";
 import { toDateKey } from "@/lib/date";
 import EquipmentRow from "./EquipmentRow";
+import ExportButton from "./ExportButton";
 
 export default function AreaPanel({ area }: { area: Area }) {
   const addEquipment = useStore((s) => s.addEquipment);
@@ -20,16 +21,15 @@ export default function AreaPanel({ area }: { area: Area }) {
     setAdding(false);
   }
 
-  function handleExport() {
-    const today = toDateKey(new Date());
-    exportSheetsToExcel(`Техника — ${area.name}`, [
+  function handleExport(range: { start: string; end: string }) {
+    exportSheetsToExcel(`Техника — ${area.name} — ${range.start}_${range.end}`, [
       {
         name: "Техника",
         rows: area.equipment.map((eq) => {
-          const status = equipmentStatusOnDate(eq, today);
+          const status = equipmentStatusOnDate(eq, range.end);
           return {
             Техника: eq.name,
-            "Статус сегодня": status.broken ? `Неисправна: ${status.issue ?? ""}` : "Исправна",
+            Статус: status.broken ? `Неисправна: ${status.issue ?? ""}` : "Исправна",
             "Начало ремонта": eq.status.repairStart ?? "",
             "Окончание ремонта": eq.status.repairEnd ?? "",
           };
@@ -38,30 +38,34 @@ export default function AreaPanel({ area }: { area: Area }) {
       {
         name: "Работы",
         rows: area.equipment.flatMap((eq) =>
-          eq.jobs.map((j) => ({
-            Техника: eq.name,
-            Дата: j.date,
-            Начало: j.startTime,
-            Конец: j.endTime,
-            Название: j.title,
-            Адрес: j.address,
-            Важность: IMPORTANCE_LABELS[j.importance],
-          }))
+          eq.jobs
+            .filter((j) => j.date >= range.start && j.date <= range.end)
+            .map((j) => ({
+              Техника: eq.name,
+              Дата: j.date,
+              Начало: j.startTime,
+              Конец: j.endTime,
+              Название: j.title,
+              Адрес: j.address,
+              Важность: IMPORTANCE_LABELS[j.importance],
+            }))
         ),
       },
       {
         name: "Переброски",
         rows: area.equipment.flatMap((eq) =>
-          eq.transfers.map((t) => ({
-            Техника: eq.name,
-            Дата: t.date,
-            Начало: t.startTime,
-            Конец: t.endTime,
-            Название: t.title,
-            Адрес: t.address,
-            Важность: IMPORTANCE_LABELS[t.importance],
-            "Куда": areas.find((a) => a.id === t.targetAreaId)?.name ?? "",
-          }))
+          eq.transfers
+            .filter((t) => t.date >= range.start && t.date <= range.end)
+            .map((t) => ({
+              Техника: eq.name,
+              Дата: t.date,
+              Начало: t.startTime,
+              Конец: t.endTime,
+              Название: t.title,
+              Адрес: t.address,
+              Важность: IMPORTANCE_LABELS[t.importance],
+              "Куда": areas.find((a) => a.id === t.targetAreaId)?.name ?? "",
+            }))
         ),
       },
     ]);
@@ -70,12 +74,9 @@ export default function AreaPanel({ area }: { area: Area }) {
   return (
     <div className="flex flex-col gap-3">
       {area.equipment.length > 0 && (
-        <button
-          onClick={handleExport}
-          className="self-end rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-50"
-        >
-          ⬇ Выгрузить в Excel
-        </button>
+        <div className="self-end">
+          <ExportButton referenceDate={toDateKey(new Date())} onExport={handleExport} />
+        </div>
       )}
 
       {area.equipment.length === 0 && !adding && (
