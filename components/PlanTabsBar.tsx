@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { DISTRIBUTION_SUMMARY_ID } from "@/lib/types";
+import { PLAN_SUMMARY_ID } from "@/lib/types";
 
-export default function TabsBar() {
-  const areas = useStore((s) => s.areas);
-  const activeAreaId = useStore((s) => s.activeAreaId);
-  const setActiveArea = useStore((s) => s.setActiveArea);
-  const addArea = useStore((s) => s.addArea);
-  const renameArea = useStore((s) => s.renameArea);
-  const removeArea = useStore((s) => s.removeArea);
+export default function PlanTabsBar() {
+  const planTabs = useStore((s) => s.planTabs);
+  const activePlanViewId = useStore((s) => s.activePlanViewId);
+  const setActivePlanView = useStore((s) => s.setActivePlanView);
+  const addPlanTab = useStore((s) => s.addPlanTab);
+  const renamePlanTab = useStore((s) => s.renamePlanTab);
+  const removePlanTab = useStore((s) => s.removePlanTab);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
@@ -24,14 +24,14 @@ export default function TabsBar() {
 
   function commitEdit() {
     if (editingId && draftName.trim()) {
-      renameArea(editingId, draftName.trim());
+      renamePlanTab(editingId, draftName.trim());
     }
     setEditingId(null);
   }
 
   function commitAdd() {
     if (newName.trim()) {
-      addArea(newName.trim());
+      addPlanTab(newName.trim());
     }
     setNewName("");
     setAdding(false);
@@ -40,29 +40,29 @@ export default function TabsBar() {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-sky-100 bg-white/70 px-4 py-3">
       <button
-        onClick={() => setActiveArea(DISTRIBUTION_SUMMARY_ID)}
+        onClick={() => setActivePlanView(PLAN_SUMMARY_ID)}
         className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-          activeAreaId === DISTRIBUTION_SUMMARY_ID
+          activePlanViewId === PLAN_SUMMARY_ID
             ? "border-sky-700 bg-sky-700 text-white shadow-soft"
             : "border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100"
         }`}
-        title="Сводная таблица по всей технике (нельзя удалить)"
+        title="Свод по всем вкладкам плана (нельзя удалить)"
       >
-        📊 Сводная таблица
+        📊 Свод
       </button>
 
-      {areas.map((area) => {
-        const isActive = area.id === activeAreaId;
+      {planTabs.map((tab) => {
+        const isActive = tab.id === activePlanViewId;
         return (
           <div
-            key={area.id}
+            key={tab.id}
             className={`group flex items-center gap-1 rounded-full border px-1 py-1 transition ${
               isActive
                 ? "border-sky-500 bg-sky-500 text-white shadow-soft"
                 : "border-sky-200 bg-white text-sky-700 hover:bg-sky-50"
             }`}
           >
-            {editingId === area.id ? (
+            {editingId === tab.id ? (
               <input
                 autoFocus
                 value={draftName}
@@ -76,22 +76,18 @@ export default function TabsBar() {
               />
             ) : (
               <button
-                onClick={() => setActiveArea(area.id)}
-                onDoubleClick={() => startEdit(area.id, area.name)}
+                onClick={() => setActivePlanView(tab.id)}
+                onDoubleClick={() => startEdit(tab.id, tab.name)}
                 className="rounded-full px-3 py-1 text-sm font-medium"
                 title="Клик — выбрать, двойной клик — переименовать"
               >
-                {area.name}
+                {tab.name}
               </button>
             )}
             <button
               onClick={() => {
-                if (
-                  confirm(
-                    `Удалить вкладку "${area.name}" и всю технику в ней?`
-                  )
-                ) {
-                  removeArea(area.id);
+                if (confirm(`Удалить вкладку "${tab.name}" и все строки в ней?`)) {
+                  removePlanTab(tab.id);
                 }
               }}
               className={`hidden rounded-full px-2 py-0.5 text-xs group-hover:inline ${
@@ -115,7 +111,7 @@ export default function TabsBar() {
             if (e.key === "Enter") commitAdd();
             if (e.key === "Escape") setAdding(false);
           }}
-          placeholder="Название района"
+          placeholder="Название вкладки"
           className="w-40 rounded-full border border-sky-300 bg-white px-3 py-1.5 text-sm text-sky-900 outline-none focus:border-sky-500"
         />
       ) : (

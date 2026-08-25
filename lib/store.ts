@@ -2,8 +2,12 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
   Area,
+  ColumnScope,
   Equipment,
   EquipmentStatus,
+  PLAN_SUMMARY_ID,
+  PlanColumn,
+  PlanTab,
   TransferEntry,
   WorkEntry,
 } from "./types";
@@ -15,7 +19,12 @@ function makeId(): string {
   return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+type Section = "distribution" | "dailyPlan";
+
 interface StoreState {
+  activeSection: Section;
+  setActiveSection: (section: Section) => void;
+
   areas: Area[];
   activeAreaId: string | null;
 
@@ -45,6 +54,28 @@ interface StoreState {
   removeTransfer: (areaId: string, equipmentId: string, transferId: string) => void;
 
   setStatus: (areaId: string, equipmentId: string, status: EquipmentStatus) => void;
+
+  planTabs: PlanTab[];
+  activePlanViewId: string | null;
+  planColumns: PlanColumn[];
+
+  addPlanTab: (name: string) => void;
+  renamePlanTab: (tabId: string, name: string) => void;
+  removePlanTab: (tabId: string) => void;
+  setActivePlanView: (viewId: string) => void;
+
+  addPlanRow: (tabId: string, date: string) => void;
+  updatePlanRowLabel: (tabId: string, rowId: string, label: string) => void;
+  updatePlanRowValue: (
+    tabId: string,
+    rowId: string,
+    columnId: string,
+    value: string
+  ) => void;
+  removePlanRow: (tabId: string, rowId: string) => void;
+
+  addPlanColumn: (title: string, scope: ColumnScope) => void;
+  removePlanColumn: (columnId: string) => void;
 }
 
 function seedAreas(): Area[] {
@@ -69,6 +100,9 @@ function seedAreas(): Area[] {
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
+      activeSection: "distribution",
+      setActiveSection: (section) => set({ activeSection: section }),
+
       areas: [],
       activeAreaId: null,
 
@@ -267,6 +301,91 @@ export const useStore = create<StoreState>()(
                 }
               : a
           ),
+        })),
+
+      planTabs: [],
+      activePlanViewId: PLAN_SUMMARY_ID,
+      planColumns: [],
+
+      addPlanTab: (name) =>
+        set((state) => {
+          const tab: PlanTab = { id: makeId(), name, rows: [] };
+          return {
+            planTabs: [...state.planTabs, tab],
+            activePlanViewId: tab.id,
+          };
+        }),
+
+      renamePlanTab: (tabId, name) =>
+        set((state) => ({
+          planTabs: state.planTabs.map((t) => (t.id === tabId ? { ...t, name } : t)),
+        })),
+
+      removePlanTab: (tabId) =>
+        set((state) => {
+          const planTabs = state.planTabs.filter((t) => t.id !== tabId);
+          const activePlanViewId =
+            state.activePlanViewId === tabId ? PLAN_SUMMARY_ID : state.activePlanViewId;
+          return { planTabs, activePlanViewId };
+        }),
+
+      setActivePlanView: (viewId) => set({ activePlanViewId: viewId }),
+
+      addPlanRow: (tabId, date) =>
+        set((state) => ({
+          planTabs: state.planTabs.map((t) =>
+            t.id === tabId
+              ? {
+                  ...t,
+                  rows: [...t.rows, { id: makeId(), date, label: "", values: {} }],
+                }
+              : t
+          ),
+        })),
+
+      updatePlanRowLabel: (tabId, rowId, label) =>
+        set((state) => ({
+          planTabs: state.planTabs.map((t) =>
+            t.id === tabId
+              ? {
+                  ...t,
+                  rows: t.rows.map((r) => (r.id === rowId ? { ...r, label } : r)),
+                }
+              : t
+          ),
+        })),
+
+      updatePlanRowValue: (tabId, rowId, columnId, value) =>
+        set((state) => ({
+          planTabs: state.planTabs.map((t) =>
+            t.id === tabId
+              ? {
+                  ...t,
+                  rows: t.rows.map((r) =>
+                    r.id === rowId
+                      ? { ...r, values: { ...r.values, [columnId]: value } }
+                      : r
+                  ),
+                }
+              : t
+          ),
+        })),
+
+      removePlanRow: (tabId, rowId) =>
+        set((state) => ({
+          planTabs: state.planTabs.map((t) =>
+            t.id === tabId ? { ...t, rows: t.rows.filter((r) => r.id !== rowId) } : t
+          ),
+        })),
+
+      addPlanColumn: (title, scope) =>
+        set((state) => ({
+          planColumns: [...state.planColumns, { id: makeId(), title, scope }],
+        })),
+
+      removePlanColumn: (columnId) =>
+        set((state) => ({
+          planColumns: state.planColumns.filter((c) => c.id !== columnId),
         })),
     }),
     {

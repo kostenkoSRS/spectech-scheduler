@@ -49,3 +49,27 @@ export function isSameDay(a: Date, b: Date): boolean {
     a.getDate() === b.getDate()
   );
 }
+
+export function parseDateKey(key: string): Date {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+// Понедельник = 0 ... Воскресенье = 6, соответствует порядку WEEKDAY_NAMES
+export function weekdayOfDateKey(key: string): number {
+  return (parseDateKey(key).getDay() + 6) % 7;
+}
+
+export function formatDateKeyLong(key: string): string {
+  return parseDateKey(key).toLocaleDateString("ru-RU", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export function shiftDateKey(key: string, days: number): string {
+  const d = parseDateKey(key);
+  d.setDate(d.getDate() + days);
+  return toDateKey(d);
+}
