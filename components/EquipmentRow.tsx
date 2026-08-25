@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { Equipment } from "@/lib/types";
+import { toDateKey } from "@/lib/date";
+import { equipmentStatusOnDate } from "@/lib/equipment";
 import AssignWorkModal from "./AssignWorkModal";
 import TransferModal from "./TransferModal";
 import StatusModal from "./StatusModal";
@@ -26,7 +28,8 @@ export default function EquipmentRow({
     setEditing(false);
   }
 
-  const isRepair = equipment.status.type === "repair";
+  const status = equipmentStatusOnDate(equipment, toDateKey(new Date()));
+  const isRepair = status.broken;
 
   return (
     <div className="grid grid-cols-1 items-center gap-2 rounded-xl border border-sky-100 bg-white p-3 shadow-card sm:grid-cols-[1fr_auto_auto_auto_auto]">
@@ -70,7 +73,7 @@ export default function EquipmentRow({
 
       <button
         onClick={() => setOpenModal("status")}
-        title={isRepair ? equipment.status.issue : undefined}
+        title={isRepair ? status.issue : undefined}
         className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
           isRepair
             ? "border-rose-300 bg-rose-100 text-rose-700"
@@ -78,7 +81,7 @@ export default function EquipmentRow({
         }`}
       >
         {isRepair
-          ? `🔧 ${equipment.status.issue ?? "Неисправность"} · до ${equipment.status.repairEnd ?? "?"}`
+          ? `🔧 ${status.issue ?? "Неисправность"} · до ${equipment.status.repairEnd ?? "?"}`
           : "✅ Исправна"}
       </button>
 
