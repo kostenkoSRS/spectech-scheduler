@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Area, IMPORTANCE_COLORS, IMPORTANCE_LABELS, TransferEntry, WorkEntry } from "@/lib/types";
 import { eachDateKeyInRange, toDateKey } from "@/lib/date";
 import { equipmentStatusOnDate } from "@/lib/equipment";
-import { exportRowsToExcel } from "@/lib/excel";
+import { exportSheetsToExcel } from "@/lib/excel";
 import DateNav from "./DateNav";
 import ExportButton from "./ExportButton";
 
@@ -21,8 +21,10 @@ export default function EquipmentSummaryTable({ areas }: { areas: Area[] }) {
 
   function handleExport(range: { start: string; end: string }) {
     const exportRows: Record<string, string>[] = [];
-    for (const dateKey of eachDateKeyInRange(range.start, range.end)) {
-      for (const area of areas) {
+    // группируем по району (не по дате), чтобы строки одного района шли подряд
+    // и корректно объединялись в одну ячейку при экспорте
+    for (const area of areas) {
+      for (const dateKey of eachDateKeyInRange(range.start, range.end)) {
         for (const eq of area.equipment) {
           const status = equipmentStatusOnDate(eq, dateKey);
           const jobs = entriesOnDate(eq.jobs, dateKey);
@@ -45,7 +47,9 @@ export default function EquipmentSummaryTable({ areas }: { areas: Area[] }) {
         }
       }
     }
-    exportRowsToExcel(`Свод техники — ${range.start}_${range.end}`, "Свод", exportRows);
+    exportSheetsToExcel(`Свод техники — ${range.start}_${range.end}`, [
+      { name: "Свод", rows: exportRows, mergeColumn: "Район" },
+    ]);
   }
 
   if (totalEquipment === 0) {

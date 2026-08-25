@@ -4,16 +4,12 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { ColumnScope } from "@/lib/types";
 import { eachDateKeyInRange, toDateKey, WEEKDAY_NAMES } from "@/lib/date";
-import {
-  assignEquipmentToRows,
-  columnScopeLabel,
-  isColumnVisibleOnDate,
-  visiblePlanRows,
-} from "@/lib/plan";
+import { columnScopeLabel, isColumnVisibleOnDate, visiblePlanRows } from "@/lib/plan";
 import { equipmentStatusOnDate } from "@/lib/equipment";
-import { exportRowsToExcel } from "@/lib/excel";
+import { exportSheetsToExcel } from "@/lib/excel";
 import DateNav from "./DateNav";
 import ExportButton from "./ExportButton";
+import EquipmentStatusList from "./EquipmentStatusList";
 
 type ScopeKind = "all" | "date" | "weekday";
 
@@ -45,29 +41,35 @@ export default function PlanSummaryTable() {
   }
 
   function handleExport(range: { start: string; end: string }) {
-    const exportRows: Record<string, string>[] = [];
-    for (const dateKey of eachDateKeyInRange(range.start, range.end)) {
-      const dayColumns = planColumns.filter((c) => isColumnVisibleOnDate(c, dateKey));
-      for (const area of areas) {
-        const dayRows = visiblePlanRows(area.planRows, dateKey);
-        const dayEquipment = assignEquipmentToRows(dayRows, area.equipment);
-        dayRows.forEach((row, i) => {
-          const eq = dayEquipment[i];
-          const status = eq ? equipmentStatusOnDate(eq, dateKey) : null;
-          const base: Record<string, string> = {
+    const techRows: Record<string, string>[] = [];
+    const workRows: Record<string, string>[] = [];
+    // группируем по району (не по дате), чтобы строки одного района шли подряд
+    // и корректно объединялись в одну ячейку при экспорте
+    for (const area of areas) {
+      for (const dateKey of eachDateKeyInRange(range.start, range.end)) {
+        for (const eq of area.equipment) {
+          const status = equipmentStatusOnDate(eq, dateKey);
+          techRows.push({
             Район: area.name,
             Дата: dateKey,
-            Техника: eq?.name ?? "",
-            Статус: status ? (status.broken ? `Неисправна: ${status.issue ?? ""}` : "Исправна") : "",
-          };
+            Техника: eq.name,
+            Статус: status.broken ? `Неисправна: ${status.issue ?? ""}` : "Исправна",
+          });
+        }
+        const dayColumns = planColumns.filter((c) => isColumnVisibleOnDate(c, dateKey));
+        for (const row of visiblePlanRows(area.planRows, dateKey)) {
+          const base: Record<string, string> = { Район: area.name, Дата: dateKey };
           for (const col of dayColumns) {
             base[col.title] = row.values[col.id] ?? "";
           }
-          exportRows.push(base);
-        });
+          workRows.push(base);
+        }
       }
     }
-    exportRowsToExcel(`Свод плана работ — ${range.start}_${range.end}`, "Свод", exportRows);
+    exportSheetsToExcel(`Свод плана работ — ${range.start}_${range.end}`, [
+      { name: "Техника", rows: techRows, mergeColumn: "Район" },
+      { name: "Работы", rows: workRows, mergeColumn: "Район" },
+    ]);
   }
 
   return (
@@ -171,7 +173,7 @@ export default function PlanSummaryTable() {
         <div className="flex flex-col gap-4">
           {areas.map((area) => {
             const rows = visiblePlanRows(area.planRows, selectedDate);
-            const assignedEquipment = assignEquipmentToRows(rows, area.equipment);
+            const rowSpan = Math.max(rows.length, 1);
             return (
               <div
                 key={area.id}
@@ -180,58 +182,59 @@ export default function PlanSummaryTable() {
                 <div className="border-b border-sky-100 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-900">
                   {area.name}
                 </div>
-                {rows.length === 0 ? (
-                  <div className="px-4 py-4 text-sm text-sky-400">Нет строк на эту дату.</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[520px] text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-sky-100 text-xs uppercase text-sky-400">
-                          <th className="w-56 px-4 py-2 font-medium">Техника</th>
-                          <th className="w-48 px-4 py-2 font-medium">Статус</th>
-                          {visibleColumns.map((col) => (
-                            <th key={col.id} className="px-4 py-2 font-medium">
-                              {col.title}
-                            </th>
-                          ))}
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[520px] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-sky-100 text-xs uppercase text-sky-400">
+                        <th className="w-56 px-4 py-2 font-medium">Техника</th>
+                        {visibleColumns.map((col) => (
+                          <th key={col.id} className="px-4 py-2 font-medium">
+                            {col.title}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.length === 0 ? (
+                        <tr>
+                          <td
+                            rowSpan={rowSpan}
+                            className="w-56 border-r border-sky-50 px-4 py-3 align-top"
+                          >
+                            <EquipmentStatusList equipment={area.equipment} date={selectedDate} />
+                          </td>
+                          <td
+                            colSpan={Math.max(visibleColumns.length, 1)}
+                            className="px-4 py-4 text-sm text-sky-400"
+                          >
+                            Нет строк на эту дату.
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((row, i) => {
-                          const eq = assignedEquipment[i];
-                          const status = eq ? equipmentStatusOnDate(eq, selectedDate) : null;
-                          return (
-                            <tr key={row.id} className="border-b border-sky-50 last:border-0">
-                              <td className="w-56 px-4 py-2 font-medium text-sky-900">
-                                {eq ? eq.name : <span className="text-sky-300">— нет техники —</span>}
+                      ) : (
+                        rows.map((row, i) => (
+                          <tr key={row.id} className="border-b border-sky-50 last:border-0">
+                            {i === 0 && (
+                              <td
+                                rowSpan={rowSpan}
+                                className="w-56 border-r border-sky-50 px-4 py-3 align-top"
+                              >
+                                <EquipmentStatusList
+                                  equipment={area.equipment}
+                                  date={selectedDate}
+                                />
                               </td>
-                              <td className="w-48 px-4 py-2">
-                                {status && (
-                                  <span
-                                    className={`inline-block rounded-full border px-2 py-0.5 text-xs ${
-                                      status.broken
-                                        ? "border-rose-300 bg-rose-100 text-rose-700"
-                                        : "border-emerald-300 bg-emerald-100 text-emerald-700"
-                                    }`}
-                                  >
-                                    {status.broken
-                                      ? `🔧 ${status.issue ?? "Неисправность"}`
-                                      : "✅ Исправна"}
-                                  </span>
-                                )}
+                            )}
+                            {visibleColumns.map((col) => (
+                              <td key={col.id} className="px-4 py-2 text-sky-700">
+                                {row.values[col.id] || <span className="text-sky-300">—</span>}
                               </td>
-                              {visibleColumns.map((col) => (
-                                <td key={col.id} className="px-4 py-2 text-sky-700">
-                                  {row.values[col.id] || <span className="text-sky-300">—</span>}
-                                </td>
-                              ))}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                            ))}
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             );
           })}

@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { Area } from "@/lib/types";
 import { eachDateKeyInRange, toDateKey } from "@/lib/date";
-import { assignEquipmentToRows, isColumnVisibleOnDate, visiblePlanRows } from "@/lib/plan";
+import { isColumnVisibleOnDate, visiblePlanRows } from "@/lib/plan";
 import { equipmentStatusOnDate } from "@/lib/equipment";
-import { exportRowsToExcel } from "@/lib/excel";
+import { exportSheetsToExcel } from "@/lib/excel";
 import DateNav from "./DateNav";
 import ExportButton from "./ExportButton";
+import EquipmentStatusList from "./EquipmentStatusList";
 
 export default function PlanTabPanel({ area }: { area: Area }) {
   const planColumns = useStore((s) => s.planColumns);
@@ -20,33 +21,33 @@ export default function PlanTabPanel({ area }: { area: Area }) {
 
   const visibleColumns = planColumns.filter((c) => isColumnVisibleOnDate(c, selectedDate));
   const rows = visiblePlanRows(area.planRows, selectedDate);
-  const assignedEquipment = assignEquipmentToRows(rows, area.equipment);
+  const rowSpan = Math.max(rows.length, 1);
 
   function handleExport(range: { start: string; end: string }) {
-    const exportRows: Record<string, string>[] = [];
+    const techRows: Record<string, string>[] = [];
+    const workRows: Record<string, string>[] = [];
     for (const dateKey of eachDateKeyInRange(range.start, range.end)) {
-      const dayRows = visiblePlanRows(area.planRows, dateKey);
-      const dayEquipment = assignEquipmentToRows(dayRows, area.equipment);
-      const dayColumns = planColumns.filter((c) => isColumnVisibleOnDate(c, dateKey));
-      dayRows.forEach((row, i) => {
-        const eq = dayEquipment[i];
-        const status = eq ? equipmentStatusOnDate(eq, dateKey) : null;
-        const base: Record<string, string> = {
+      for (const eq of area.equipment) {
+        const status = equipmentStatusOnDate(eq, dateKey);
+        techRows.push({
           Дата: dateKey,
-          "Спец техника": eq?.name ?? "",
-          Статус: status ? (status.broken ? `Неисправна: ${status.issue ?? ""}` : "Исправна") : "",
-        };
+          Техника: eq.name,
+          Статус: status.broken ? `Неисправна: ${status.issue ?? ""}` : "Исправна",
+        });
+      }
+      const dayColumns = planColumns.filter((c) => isColumnVisibleOnDate(c, dateKey));
+      for (const row of visiblePlanRows(area.planRows, dateKey)) {
+        const base: Record<string, string> = { Дата: dateKey };
         for (const col of dayColumns) {
           base[col.title] = row.values[col.id] ?? "";
         }
-        exportRows.push(base);
-      });
+        workRows.push(base);
+      }
     }
-    exportRowsToExcel(
-      `План работ — ${area.name} — ${range.start}_${range.end}`,
-      area.name,
-      exportRows
-    );
+    exportSheetsToExcel(`План работ — ${area.name} — ${range.start}_${range.end}`, [
+      { name: "Техника", rows: techRows },
+      { name: "Работы", rows: workRows },
+    ]);
   }
 
   return (
@@ -70,41 +71,29 @@ export default function PlanTabPanel({ area }: { area: Area }) {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
+            {rows.length === 0 ? (
               <tr>
+                <td rowSpan={rowSpan} className="w-56 border-r border-sky-50 px-4 py-3 align-top">
+                  <EquipmentStatusList equipment={area.equipment} date={selectedDate} />
+                </td>
                 <td
-                  colSpan={visibleColumns.length + 2}
+                  colSpan={visibleColumns.length + 1}
                   className="px-4 py-6 text-center text-sky-400"
                 >
                   На эту дату строк пока нет.
                 </td>
               </tr>
-            )}
-            {rows.map((row, i) => {
-              const eq = assignedEquipment[i];
-              const status = eq ? equipmentStatusOnDate(eq, selectedDate) : null;
-              return (
+            ) : (
+              rows.map((row, i) => (
                 <tr key={row.id} className="border-b border-sky-50 last:border-0">
-                  <td className="w-56 px-4 py-2">
-                    {eq ? (
-                      <div>
-                        <div className="font-medium text-sky-900">{eq.name}</div>
-                        {status && (
-                          <span
-                            className={`mt-1 inline-block rounded-full border px-2 py-0.5 text-[11px] ${
-                              status.broken
-                                ? "border-rose-300 bg-rose-100 text-rose-700"
-                                : "border-emerald-300 bg-emerald-100 text-emerald-700"
-                            }`}
-                          >
-                            {status.broken ? `🔧 ${status.issue ?? "Неисправность"}` : "✅ Исправна"}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-sky-300">— нет техники в районе —</span>
-                    )}
-                  </td>
+                  {i === 0 && (
+                    <td
+                      rowSpan={rowSpan}
+                      className="w-56 border-r border-sky-50 px-4 py-3 align-top"
+                    >
+                      <EquipmentStatusList equipment={area.equipment} date={selectedDate} />
+                    </td>
+                  )}
                   {visibleColumns.map((col) => (
                     <td key={col.id} className="px-2 py-1.5">
                       <input
@@ -126,8 +115,8 @@ export default function PlanTabPanel({ area }: { area: Area }) {
                     </button>
                   </td>
                 </tr>
-              );
-            })}
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -141,7 +130,7 @@ export default function PlanTabPanel({ area }: { area: Area }) {
 
       <p className="text-xs text-sky-400">
         Строка появляется с даты добавления и остаётся видна на все последующие даты (на прошлые
-        не влияет). Техника района равномерно распределяется по видимым строкам.
+        не влияет). Техника района показывается сразу и целиком, независимо от строк.
       </p>
 
       {planColumns.length > visibleColumns.length && (
