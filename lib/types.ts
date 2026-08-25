@@ -31,12 +31,6 @@ export interface Equipment {
   status: EquipmentStatus;
 }
 
-export interface Area {
-  id: string;
-  name: string;
-  equipment: Equipment[];
-}
-
 export const DISTRIBUTION_SUMMARY_ID = "__equipment_summary__";
 export const PLAN_SUMMARY_ID = "__plan_summary__";
 
@@ -54,14 +48,18 @@ export interface PlanColumn {
 export interface PlanRow {
   id: string;
   date: string; // YYYY-MM-DD
-  label: string;
+  equipmentId: string | null;
   values: Record<string, string>; // columnId -> значение
 }
 
-export interface PlanTab {
+// Одна и та же вкладка (район) используется и в "Распределении спец техники"
+// (через equipment), и в "Плане работ на день" (через planRows) — названия и
+// количество вкладок в обоих разделах всегда совпадают.
+export interface Area {
   id: string;
   name: string;
-  rows: PlanRow[];
+  equipment: Equipment[];
+  planRows: PlanRow[];
 }
 
 export const IMPORTANCE_LABELS: Record<Importance, string> = {

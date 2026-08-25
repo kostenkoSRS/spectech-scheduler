@@ -5,12 +5,12 @@ import { useStore } from "@/lib/store";
 import { PLAN_SUMMARY_ID } from "@/lib/types";
 
 export default function PlanTabsBar() {
-  const planTabs = useStore((s) => s.planTabs);
+  const areas = useStore((s) => s.areas);
   const activePlanViewId = useStore((s) => s.activePlanViewId);
   const setActivePlanView = useStore((s) => s.setActivePlanView);
-  const addPlanTab = useStore((s) => s.addPlanTab);
-  const renamePlanTab = useStore((s) => s.renamePlanTab);
-  const removePlanTab = useStore((s) => s.removePlanTab);
+  const addArea = useStore((s) => s.addArea);
+  const renameArea = useStore((s) => s.renameArea);
+  const removeArea = useStore((s) => s.removeArea);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
@@ -24,14 +24,14 @@ export default function PlanTabsBar() {
 
   function commitEdit() {
     if (editingId && draftName.trim()) {
-      renamePlanTab(editingId, draftName.trim());
+      renameArea(editingId, draftName.trim());
     }
     setEditingId(null);
   }
 
   function commitAdd() {
     if (newName.trim()) {
-      addPlanTab(newName.trim());
+      addArea(newName.trim());
     }
     setNewName("");
     setAdding(false);
@@ -51,18 +51,18 @@ export default function PlanTabsBar() {
         📊 Свод
       </button>
 
-      {planTabs.map((tab) => {
-        const isActive = tab.id === activePlanViewId;
+      {areas.map((area) => {
+        const isActive = area.id === activePlanViewId;
         return (
           <div
-            key={tab.id}
+            key={area.id}
             className={`group flex items-center gap-1 rounded-full border px-1 py-1 transition ${
               isActive
                 ? "border-sky-500 bg-sky-500 text-white shadow-soft"
                 : "border-sky-200 bg-white text-sky-700 hover:bg-sky-50"
             }`}
           >
-            {editingId === tab.id ? (
+            {editingId === area.id ? (
               <input
                 autoFocus
                 value={draftName}
@@ -76,18 +76,22 @@ export default function PlanTabsBar() {
               />
             ) : (
               <button
-                onClick={() => setActivePlanView(tab.id)}
-                onDoubleClick={() => startEdit(tab.id, tab.name)}
+                onClick={() => setActivePlanView(area.id)}
+                onDoubleClick={() => startEdit(area.id, area.name)}
                 className="rounded-full px-3 py-1 text-sm font-medium"
                 title="Клик — выбрать, двойной клик — переименовать"
               >
-                {tab.name}
+                {area.name}
               </button>
             )}
             <button
               onClick={() => {
-                if (confirm(`Удалить вкладку "${tab.name}" и все строки в ней?`)) {
-                  removePlanTab(tab.id);
+                if (
+                  confirm(
+                    `Удалить вкладку "${area.name}"? Она также исчезнет из "Распределения спец техники" вместе со всей техникой.`
+                  )
+                ) {
+                  removeArea(area.id);
                 }
               }}
               className={`hidden rounded-full px-2 py-0.5 text-xs group-hover:inline ${

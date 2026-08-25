@@ -7,7 +7,6 @@ import {
   EquipmentStatus,
   PLAN_SUMMARY_ID,
   PlanColumn,
-  PlanTab,
   TransferEntry,
   WorkEntry,
 } from "./types";
@@ -25,13 +24,17 @@ interface StoreState {
   activeSection: Section;
   setActiveSection: (section: Section) => void;
 
+  // Вкладки (районы) общие для обоих разделов: одна и та же вкладка несёт
+  // и технику (equipment), и строки плана (planRows).
   areas: Area[];
   activeAreaId: string | null;
+  activePlanViewId: string | null;
 
   addArea: (name: string) => void;
   renameArea: (areaId: string, name: string) => void;
   removeArea: (areaId: string) => void;
   setActiveArea: (areaId: string) => void;
+  setActivePlanView: (viewId: string) => void;
 
   addEquipment: (areaId: string, name: string) => void;
   renameEquipment: (areaId: string, equipmentId: string, name: string) => void;
@@ -55,24 +58,17 @@ interface StoreState {
 
   setStatus: (areaId: string, equipmentId: string, status: EquipmentStatus) => void;
 
-  planTabs: PlanTab[];
-  activePlanViewId: string | null;
   planColumns: PlanColumn[];
 
-  addPlanTab: (name: string) => void;
-  renamePlanTab: (tabId: string, name: string) => void;
-  removePlanTab: (tabId: string) => void;
-  setActivePlanView: (viewId: string) => void;
-
-  addPlanRow: (tabId: string, date: string) => void;
-  updatePlanRowLabel: (tabId: string, rowId: string, label: string) => void;
+  addPlanRow: (areaId: string, date: string) => void;
+  updatePlanRowEquipment: (areaId: string, rowId: string, equipmentId: string | null) => void;
   updatePlanRowValue: (
-    tabId: string,
+    areaId: string,
     rowId: string,
     columnId: string,
     value: string
   ) => void;
-  removePlanRow: (tabId: string, rowId: string) => void;
+  removePlanRow: (areaId: string, rowId: string) => void;
 
   addPlanColumn: (title: string, scope: ColumnScope) => void;
   removePlanColumn: (columnId: string) => void;
@@ -93,6 +89,7 @@ function seedAreas(): Area[] {
       id: areaId,
       name: "Район 1",
       equipment: [equipment],
+      planRows: [],
     },
   ];
 }
@@ -105,13 +102,15 @@ export const useStore = create<StoreState>()(
 
       areas: [],
       activeAreaId: null,
+      activePlanViewId: PLAN_SUMMARY_ID,
 
       addArea: (name) =>
         set((state) => {
-          const area: Area = { id: makeId(), name, equipment: [] };
+          const area: Area = { id: makeId(), name, equipment: [], planRows: [] };
           return {
             areas: [...state.areas, area],
             activeAreaId: state.activeAreaId ?? area.id,
+            activePlanViewId: area.id,
           };
         }),
 
@@ -127,10 +126,13 @@ export const useStore = create<StoreState>()(
             state.activeAreaId === areaId
               ? areas[0]?.id ?? null
               : state.activeAreaId;
-          return { areas, activeAreaId };
+          const activePlanViewId =
+            state.activePlanViewId === areaId ? PLAN_SUMMARY_ID : state.activePlanViewId;
+          return { areas, activeAreaId, activePlanViewId };
         }),
 
       setActiveArea: (areaId) => set({ activeAreaId: areaId }),
+      setActivePlanView: (viewId) => set({ activePlanViewId: viewId }),
 
       addEquipment: (areaId, name) =>
         set((state) => ({
@@ -303,78 +305,59 @@ export const useStore = create<StoreState>()(
           ),
         })),
 
-      planTabs: [],
-      activePlanViewId: PLAN_SUMMARY_ID,
       planColumns: [],
 
-      addPlanTab: (name) =>
-        set((state) => {
-          const tab: PlanTab = { id: makeId(), name, rows: [] };
-          return {
-            planTabs: [...state.planTabs, tab],
-            activePlanViewId: tab.id,
-          };
-        }),
-
-      renamePlanTab: (tabId, name) =>
+      addPlanRow: (areaId, date) =>
         set((state) => ({
-          planTabs: state.planTabs.map((t) => (t.id === tabId ? { ...t, name } : t)),
-        })),
-
-      removePlanTab: (tabId) =>
-        set((state) => {
-          const planTabs = state.planTabs.filter((t) => t.id !== tabId);
-          const activePlanViewId =
-            state.activePlanViewId === tabId ? PLAN_SUMMARY_ID : state.activePlanViewId;
-          return { planTabs, activePlanViewId };
-        }),
-
-      setActivePlanView: (viewId) => set({ activePlanViewId: viewId }),
-
-      addPlanRow: (tabId, date) =>
-        set((state) => ({
-          planTabs: state.planTabs.map((t) =>
-            t.id === tabId
+          areas: state.areas.map((a) =>
+            a.id === areaId
               ? {
-                  ...t,
-                  rows: [...t.rows, { id: makeId(), date, label: "", values: {} }],
+                  ...a,
+                  planRows: [
+                    ...a.planRows,
+                    { id: makeId(), date, equipmentId: null, values: {} },
+                  ],
                 }
-              : t
+              : a
           ),
         })),
 
-      updatePlanRowLabel: (tabId, rowId, label) =>
+      updatePlanRowEquipment: (areaId, rowId, equipmentId) =>
         set((state) => ({
-          planTabs: state.planTabs.map((t) =>
-            t.id === tabId
+          areas: state.areas.map((a) =>
+            a.id === areaId
               ? {
-                  ...t,
-                  rows: t.rows.map((r) => (r.id === rowId ? { ...r, label } : r)),
+                  ...a,
+                  planRows: a.planRows.map((r) =>
+                    r.id === rowId ? { ...r, equipmentId } : r
+                  ),
                 }
-              : t
+              : a
           ),
         })),
 
-      updatePlanRowValue: (tabId, rowId, columnId, value) =>
+      updatePlanRowValue: (areaId, rowId, columnId, value) =>
         set((state) => ({
-          planTabs: state.planTabs.map((t) =>
-            t.id === tabId
+          areas: state.areas.map((a) =>
+            a.id === areaId
               ? {
-                  ...t,
-                  rows: t.rows.map((r) =>
+                  ...a,
+                  planRows: a.planRows.map((r) =>
                     r.id === rowId
                       ? { ...r, values: { ...r.values, [columnId]: value } }
                       : r
                   ),
                 }
-              : t
+              : a
           ),
         })),
 
-      removePlanRow: (tabId, rowId) =>
+      removePlanRow: (areaId, rowId) =>
         set((state) => ({
-          planTabs: state.planTabs.map((t) =>
-            t.id === tabId ? { ...t, rows: t.rows.filter((r) => r.id !== rowId) } : t
+          areas: state.areas.map((a) =>
+            a.id === areaId
+              ? { ...a, planRows: a.planRows.filter((r) => r.id !== rowId) }
+              : a
           ),
         })),
 
@@ -391,10 +374,15 @@ export const useStore = create<StoreState>()(
     {
       name: "spectech-scheduler-storage",
       onRehydrateStorage: () => (state) => {
-        if (state && state.areas.length === 0) {
+        if (!state) return;
+        if (state.areas.length === 0) {
           const seeded = seedAreas();
           state.areas = seeded;
           state.activeAreaId = seeded[0].id;
+        } else {
+          // миграция: у вкладок, созданных до появления "Плана работ на день",
+          // может не быть поля planRows
+          state.areas = state.areas.map((a) => ({ ...a, planRows: a.planRows ?? [] }));
         }
       },
     }

@@ -46,9 +46,9 @@ export default function TabsBar() {
             ? "border-sky-700 bg-sky-700 text-white shadow-soft"
             : "border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100"
         }`}
-        title="Сводная таблица по всей технике (нельзя удалить)"
+        title="Свод по всей технике (нельзя удалить)"
       >
-        📊 Сводная таблица
+        📊 Свод
       </button>
 
       {areas.map((area) => {
@@ -88,7 +88,7 @@ export default function TabsBar() {
               onClick={() => {
                 if (
                   confirm(
-                    `Удалить вкладку "${area.name}" и всю технику в ней?`
+                    `Удалить вкладку "${area.name}" и всю технику в ней? Она также исчезнет из "Плана работ на день".`
                   )
                 ) {
                   removeArea(area.id);

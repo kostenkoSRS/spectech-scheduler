@@ -16,7 +16,6 @@ export default function Home() {
   const activeSection = useStore((s) => s.activeSection);
   const areas = useStore((s) => s.areas);
   const activeAreaId = useStore((s) => s.activeAreaId);
-  const planTabs = useStore((s) => s.planTabs);
   const activePlanViewId = useStore((s) => s.activePlanViewId);
 
   useEffect(() => {
@@ -32,7 +31,7 @@ export default function Home() {
   }
 
   const activeArea = areas.find((a) => a.id === activeAreaId) ?? null;
-  const activePlanTab = planTabs.find((t) => t.id === activePlanViewId) ?? null;
+  const activePlanArea = areas.find((a) => a.id === activePlanViewId) ?? null;
 
   return (
     <main className="min-h-screen">
@@ -66,8 +65,8 @@ export default function Home() {
           <div className="px-4 py-6 sm:px-8">
             {activePlanViewId === PLAN_SUMMARY_ID ? (
               <PlanSummaryTable />
-            ) : activePlanTab ? (
-              <PlanTabPanel key={activePlanTab.id} tab={activePlanTab} />
+            ) : activePlanArea ? (
+              <PlanTabPanel key={activePlanArea.id} area={activePlanArea} />
             ) : (
               <div className="rounded-xl border border-dashed border-sky-200 bg-white/60 p-8 text-center text-sky-500">
                 Создайте вкладку, чтобы начать заполнять план работ на день.
