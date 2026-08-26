@@ -49,7 +49,9 @@ export default function Home() {
           <TabsBar />
           <div className="px-4 py-6 sm:px-8">
             {activeAreaId === DISTRIBUTION_SUMMARY_ID ? (
-              <EquipmentSummaryTable areas={areas} />
+              <EquipmentSummaryTable
+                areas={areas.filter((a) => a.sections.includes("distribution"))}
+              />
             ) : activeArea ? (
               <AreaPanel key={activeArea.id} area={activeArea} />
             ) : (

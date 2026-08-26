@@ -7,6 +7,7 @@ import {
   EquipmentStatus,
   PLAN_SUMMARY_ID,
   PlanColumn,
+  Section,
   TransferEntry,
   WorkEntry,
 } from "./types";
@@ -18,8 +19,6 @@ function makeId(): string {
   return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-type Section = "distribution" | "dailyPlan";
-
 interface StoreState {
   activeSection: Section;
   setActiveSection: (section: Section) => void;
@@ -30,8 +29,7 @@ interface StoreState {
   activeAreaId: string | null;
   activePlanViewId: string | null;
 
-  addArea: (name: string) => void;
-  duplicateArea: (sourceAreaId: string, name: string) => void;
+  addArea: (name: string, sections: Section[]) => void;
   renameArea: (areaId: string, name: string) => void;
   removeArea: (areaId: string) => void;
   setActiveArea: (areaId: string) => void;
@@ -88,6 +86,7 @@ function seedAreas(): Area[] {
     {
       id: areaId,
       name: "Район 1",
+      sections: ["distribution", "dailyPlan"],
       equipment: [equipment],
       planRows: [],
     },
@@ -104,35 +103,17 @@ export const useStore = create<StoreState>()(
       activeAreaId: null,
       activePlanViewId: PLAN_SUMMARY_ID,
 
-      addArea: (name) =>
+      addArea: (name, sections) =>
         set((state) => {
-          const area: Area = { id: makeId(), name, equipment: [], planRows: [] };
+          const area: Area = { id: makeId(), name, sections, equipment: [], planRows: [] };
           return {
             areas: [...state.areas, area],
-            activeAreaId: state.activeAreaId ?? area.id,
-            activePlanViewId: area.id,
-          };
-        }),
-
-      duplicateArea: (sourceAreaId, name) =>
-        set((state) => {
-          const source = state.areas.find((a) => a.id === sourceAreaId);
-          if (!source) return state;
-          const area: Area = {
-            id: makeId(),
-            name,
-            equipment: source.equipment.map((e) => ({
-              ...e,
-              id: makeId(),
-              jobs: e.jobs.map((j) => ({ ...j, id: makeId() })),
-              transfers: e.transfers.map((t) => ({ ...t, id: makeId() })),
-            })),
-            planRows: source.planRows.map((r) => ({ ...r, id: makeId(), values: { ...r.values } })),
-          };
-          return {
-            areas: [...state.areas, area],
-            activeAreaId: area.id,
-            activePlanViewId: area.id,
+            activeAreaId: sections.includes("distribution")
+              ? area.id
+              : state.activeAreaId,
+            activePlanViewId: sections.includes("dailyPlan")
+              ? area.id
+              : state.activePlanViewId,
           };
         }),
 
@@ -388,9 +369,13 @@ export const useStore = create<StoreState>()(
           state.areas = seeded;
           state.activeAreaId = seeded[0].id;
         } else {
-          // миграция: у вкладок, созданных до появления "Плана работ на день",
-          // может не быть поля planRows
-          state.areas = state.areas.map((a) => ({ ...a, planRows: a.planRows ?? [] }));
+          // миграция: у вкладок, созданных раньше, может не быть полей
+          // planRows/sections — по умолчанию считаем их общими для обоих разделов
+          state.areas = state.areas.map((a) => ({
+            ...a,
+            planRows: a.planRows ?? [],
+            sections: a.sections ?? ["distribution", "dailyPlan"],
+          }));
         }
       },
     }

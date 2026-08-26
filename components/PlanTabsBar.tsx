@@ -6,7 +6,7 @@ import { PLAN_SUMMARY_ID } from "@/lib/types";
 import AddAreaControl from "./AddAreaControl";
 
 export default function PlanTabsBar() {
-  const areas = useStore((s) => s.areas);
+  const areas = useStore((s) => s.areas).filter((a) => a.sections.includes("dailyPlan"));
   const activePlanViewId = useStore((s) => s.activePlanViewId);
   const setActivePlanView = useStore((s) => s.setActivePlanView);
   const renameArea = useStore((s) => s.renameArea);
@@ -76,11 +76,11 @@ export default function PlanTabsBar() {
             )}
             <button
               onClick={() => {
-                if (
-                  confirm(
-                    `Удалить вкладку "${area.name}"? Она также исчезнет из "Распределения спец техники" вместе со всей техникой.`
-                  )
-                ) {
+                const alsoInDistribution = area.sections.includes("distribution");
+                const message = alsoInDistribution
+                  ? `Удалить вкладку "${area.name}"? Она также исчезнет из "Распределения спец техники" вместе со всей техникой.`
+                  : `Удалить вкладку "${area.name}" и все строки плана в ней?`;
+                if (confirm(message)) {
                   removeArea(area.id);
                 }
               }}
@@ -95,7 +95,7 @@ export default function PlanTabsBar() {
         );
       })}
 
-      <AddAreaControl />
+      <AddAreaControl currentSection="dailyPlan" />
     </div>
   );
 }

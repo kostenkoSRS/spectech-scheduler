@@ -51,12 +51,16 @@ export interface PlanRow {
   values: Record<string, string>; // columnId -> значение
 }
 
-// Одна и та же вкладка (район) используется и в "Распределении спец техники"
-// (через equipment), и в "Плане работ на день" (через planRows) — названия и
-// количество вкладок в обоих разделах всегда совпадают.
+export type Section = "distribution" | "dailyPlan";
+
+// Вкладка (район) может относиться к одному разделу или к обоим сразу —
+// это решается при создании вкладки. Если вкладка есть в обоих разделах,
+// это один и тот же объект: техника (equipment) и строки плана (planRows)
+// живут в одном месте, название и переименование синхронны сами по себе.
 export interface Area {
   id: string;
   name: string;
+  sections: Section[];
   equipment: Equipment[];
   planRows: PlanRow[];
 }

@@ -2,19 +2,24 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
+import { Section } from "@/lib/types";
 
-export default function AddAreaControl() {
-  const areas = useStore((s) => s.areas);
+const OTHER_SECTION_LABEL: Record<Section, string> = {
+  distribution: "«Распределение спец техники»",
+  dailyPlan: "«План работ на день»",
+};
+
+export default function AddAreaControl({ currentSection }: { currentSection: Section }) {
   const addArea = useStore((s) => s.addArea);
-  const duplicateArea = useStore((s) => s.duplicateArea);
+  const otherSection: Section = currentSection === "distribution" ? "dailyPlan" : "distribution";
 
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
-  const [duplicateFrom, setDuplicateFrom] = useState("");
+  const [alsoOther, setAlsoOther] = useState(true);
 
   function reset() {
     setName("");
-    setDuplicateFrom("");
+    setAlsoOther(true);
     setAdding(false);
   }
 
@@ -23,11 +28,8 @@ export default function AddAreaControl() {
       reset();
       return;
     }
-    if (duplicateFrom) {
-      duplicateArea(duplicateFrom, name.trim());
-    } else {
-      addArea(name.trim());
-    }
+    const sections: Section[] = alsoOther ? [currentSection, otherSection] : [currentSection];
+    addArea(name.trim(), sections);
     reset();
   }
 
@@ -55,20 +57,15 @@ export default function AddAreaControl() {
         placeholder="Название вкладки"
         className="w-36 rounded-full px-2 py-1 text-sm text-sky-900 outline-none"
       />
-      {areas.length > 0 && (
-        <select
-          value={duplicateFrom}
-          onChange={(e) => setDuplicateFrom(e.target.value)}
-          className="rounded-full border border-sky-100 bg-sky-25 px-1.5 py-1 text-xs text-sky-600 outline-none"
-        >
-          <option value="">Не дублировать</option>
-          {areas.map((a) => (
-            <option key={a.id} value={a.id}>
-              Дублировать «{a.name}»
-            </option>
-          ))}
-        </select>
-      )}
+      <label className="flex items-center gap-1.5 whitespace-nowrap px-1 text-xs text-sky-600">
+        <input
+          type="checkbox"
+          checked={alsoOther}
+          onChange={(e) => setAlsoOther(e.target.checked)}
+          className="accent-sky-600"
+        />
+        также показать в {OTHER_SECTION_LABEL[otherSection]}
+      </label>
       <button
         onClick={commitAdd}
         disabled={!name.trim()}

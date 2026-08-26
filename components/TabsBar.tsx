@@ -6,7 +6,7 @@ import { DISTRIBUTION_SUMMARY_ID } from "@/lib/types";
 import AddAreaControl from "./AddAreaControl";
 
 export default function TabsBar() {
-  const areas = useStore((s) => s.areas);
+  const areas = useStore((s) => s.areas).filter((a) => a.sections.includes("distribution"));
   const activeAreaId = useStore((s) => s.activeAreaId);
   const setActiveArea = useStore((s) => s.setActiveArea);
   const renameArea = useStore((s) => s.renameArea);
@@ -76,11 +76,11 @@ export default function TabsBar() {
             )}
             <button
               onClick={() => {
-                if (
-                  confirm(
-                    `Удалить вкладку "${area.name}" и всю технику в ней? Она также исчезнет из "Плана работ на день".`
-                  )
-                ) {
+                const alsoInPlan = area.sections.includes("dailyPlan");
+                const message = alsoInPlan
+                  ? `Удалить вкладку "${area.name}" и всю технику в ней? Она также исчезнет из "Плана работ на день".`
+                  : `Удалить вкладку "${area.name}" и всю технику в ней?`;
+                if (confirm(message)) {
                   removeArea(area.id);
                 }
               }}
@@ -95,7 +95,7 @@ export default function TabsBar() {
         );
       })}
 
-      <AddAreaControl />
+      <AddAreaControl currentSection="distribution" />
     </div>
   );
 }

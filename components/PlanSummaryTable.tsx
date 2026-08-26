@@ -14,7 +14,7 @@ import EquipmentStatusList from "./EquipmentStatusList";
 type ScopeKind = "all" | "date" | "weekday";
 
 export default function PlanSummaryTable() {
-  const areas = useStore((s) => s.areas);
+  const areas = useStore((s) => s.areas).filter((a) => a.sections.includes("dailyPlan"));
   const planColumns = useStore((s) => s.planColumns);
   const addPlanColumn = useStore((s) => s.addPlanColumn);
   const removePlanColumn = useStore((s) => s.removePlanColumn);
