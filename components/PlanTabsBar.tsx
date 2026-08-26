@@ -3,19 +3,17 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { PLAN_SUMMARY_ID } from "@/lib/types";
+import AddAreaControl from "./AddAreaControl";
 
 export default function PlanTabsBar() {
   const areas = useStore((s) => s.areas);
   const activePlanViewId = useStore((s) => s.activePlanViewId);
   const setActivePlanView = useStore((s) => s.setActivePlanView);
-  const addArea = useStore((s) => s.addArea);
   const renameArea = useStore((s) => s.renameArea);
   const removeArea = useStore((s) => s.removeArea);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [newName, setNewName] = useState("");
 
   function startEdit(id: string, currentName: string) {
     setEditingId(id);
@@ -27,14 +25,6 @@ export default function PlanTabsBar() {
       renameArea(editingId, draftName.trim());
     }
     setEditingId(null);
-  }
-
-  function commitAdd() {
-    if (newName.trim()) {
-      addArea(newName.trim());
-    }
-    setNewName("");
-    setAdding(false);
   }
 
   return (
@@ -105,27 +95,7 @@ export default function PlanTabsBar() {
         );
       })}
 
-      {adding ? (
-        <input
-          autoFocus
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onBlur={commitAdd}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commitAdd();
-            if (e.key === "Escape") setAdding(false);
-          }}
-          placeholder="Название вкладки"
-          className="w-40 rounded-full border border-sky-300 bg-white px-3 py-1.5 text-sm text-sky-900 outline-none focus:border-sky-500"
-        />
-      ) : (
-        <button
-          onClick={() => setAdding(true)}
-          className="rounded-full border border-dashed border-sky-300 px-3 py-1.5 text-sm font-medium text-sky-600 hover:border-sky-500 hover:bg-sky-50"
-        >
-          + Добавить вкладку
-        </button>
-      )}
+      <AddAreaControl />
     </div>
   );
 }

@@ -31,6 +31,7 @@ interface StoreState {
   activePlanViewId: string | null;
 
   addArea: (name: string) => void;
+  duplicateArea: (sourceAreaId: string, name: string) => void;
   renameArea: (areaId: string, name: string) => void;
   removeArea: (areaId: string) => void;
   setActiveArea: (areaId: string) => void;
@@ -109,6 +110,28 @@ export const useStore = create<StoreState>()(
           return {
             areas: [...state.areas, area],
             activeAreaId: state.activeAreaId ?? area.id,
+            activePlanViewId: area.id,
+          };
+        }),
+
+      duplicateArea: (sourceAreaId, name) =>
+        set((state) => {
+          const source = state.areas.find((a) => a.id === sourceAreaId);
+          if (!source) return state;
+          const area: Area = {
+            id: makeId(),
+            name,
+            equipment: source.equipment.map((e) => ({
+              ...e,
+              id: makeId(),
+              jobs: e.jobs.map((j) => ({ ...j, id: makeId() })),
+              transfers: e.transfers.map((t) => ({ ...t, id: makeId() })),
+            })),
+            planRows: source.planRows.map((r) => ({ ...r, id: makeId(), values: { ...r.values } })),
+          };
+          return {
+            areas: [...state.areas, area],
+            activeAreaId: area.id,
             activePlanViewId: area.id,
           };
         }),
