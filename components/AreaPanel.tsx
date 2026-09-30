@@ -24,8 +24,6 @@ export default function AreaPanel({ area }: { area: Area }) {
     <div className="flex flex-col gap-5">
       <DeclinedRequestsBanner areaId={area.id} />
 
-      <AreaMonthCalendar area={area} />
-
       <div className="flex flex-col gap-3">
         {area.equipment.length === 0 && !adding && (
           <div className="rounded-xl border border-dashed border-sky-200 bg-white/60 p-6 text-center text-sm text-sky-500">
@@ -74,6 +72,8 @@ export default function AreaPanel({ area }: { area: Area }) {
           </button>
         )}
       </div>
+
+      <AreaMonthCalendar area={area} />
     </div>
   );
 }

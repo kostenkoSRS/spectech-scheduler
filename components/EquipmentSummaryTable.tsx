@@ -8,6 +8,7 @@ import { exportGridToExcel, GridCell, GridMerge } from "@/lib/excel";
 import { useStore } from "@/lib/store";
 import MonthNav from "./MonthNav";
 import RequestCellBadge from "./RequestCellBadge";
+import DayJobEditor from "./DayJobEditor";
 
 export default function EquipmentSummaryTable({ areas }: { areas: Area[] }) {
   const equipmentRequests = useStore((s) => s.equipmentRequests);
@@ -102,6 +103,9 @@ export default function EquipmentSummaryTable({ areas }: { areas: Area[] }) {
           <span className="h-3 w-3 rounded border border-violet-300 bg-violet-100" /> есть запрос на одобрение
         </span>
       </div>
+      <p className="text-xs text-sky-400">
+        Нажмите на ячейку, чтобы добавить или удалить работу на эту дату.
+      </p>
 
       <div className="overflow-x-auto rounded-xl border border-sky-100 bg-white shadow-card">
         <table className="border-collapse text-left text-sm">
@@ -163,6 +167,8 @@ function RenderAreaRows({
   todayKey: string;
   equipmentRequests: ReturnType<typeof useStore.getState>["equipmentRequests"];
 }) {
+  const [openCell, setOpenCell] = useState<string | null>(null);
+
   if (area.equipment.length === 0) {
     return (
       <tr className="border-b border-sky-50">
@@ -201,6 +207,8 @@ function RenderAreaRows({
             const info = dayCellInfo(area, eq, d, areas);
             const bg = WORKLOAD_LEVEL_BG[info.level];
             const pending = pendingRequestFor(equipmentRequests, eq.id, d);
+            const cellKey = `${eq.id}:${d}`;
+            const dayJobs = eq.jobs.filter((j) => j.date === d);
             const tooltip = info.broken
               ? `Неисправна: ${info.issue ?? ""}`
               : info.entries.map((e) => `${e.startTime}-${e.endTime} ${e.title} (${e.resName})`).join("\n");
@@ -208,7 +216,8 @@ function RenderAreaRows({
               <td
                 key={d}
                 title={tooltip || undefined}
-                className={`border-r border-sky-50 px-1 py-1.5 align-top text-[10px] leading-tight ${bg} ${
+                onClick={() => setOpenCell(openCell === cellKey ? null : cellKey)}
+                className={`relative cursor-pointer border-r border-sky-50 px-1 py-1.5 align-top text-[10px] leading-tight hover:ring-1 hover:ring-inset hover:ring-sky-300 ${bg} ${
                   d === todayKey && !bg ? "bg-sky-50/50" : ""
                 }`}
               >
@@ -222,6 +231,15 @@ function RenderAreaRows({
                   </div>
                 ) : null}
                 {pending && <RequestCellBadge request={pending} />}
+                {openCell === cellKey && (
+                  <DayJobEditor
+                    areaId={area.id}
+                    equipmentId={eq.id}
+                    date={d}
+                    jobs={dayJobs}
+                    onClose={() => setOpenCell(null)}
+                  />
+                )}
               </td>
             );
           })}
