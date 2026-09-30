@@ -8,12 +8,14 @@ import { equipmentStatusOnDate } from "@/lib/equipment";
 import { toDateKey } from "@/lib/date";
 import EquipmentRow from "./EquipmentRow";
 import ExportButton from "./ExportButton";
+import RequestEquipmentModal from "./RequestEquipmentModal";
 
 export default function AreaPanel({ area }: { area: Area }) {
   const addEquipment = useStore((s) => s.addEquipment);
   const areas = useStore((s) => s.areas);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
+  const [requesting, setRequesting] = useState(false);
 
   function commitAdd() {
     if (name.trim()) addEquipment(area.id, name.trim());
@@ -88,6 +90,21 @@ export default function AreaPanel({ area }: { area: Area }) {
       {area.equipment.map((equipment) => (
         <EquipmentRow key={equipment.id} areaId={area.id} equipment={equipment} />
       ))}
+
+      <button
+        onClick={() => setRequesting(true)}
+        className="self-start rounded-xl border border-sky-300 bg-sky-50 px-4 py-2.5 text-sm font-medium text-sky-700 hover:bg-sky-100"
+      >
+        🔄 Запросить технику в другом РЭС
+      </button>
+
+      {requesting && (
+        <RequestEquipmentModal
+          areaId={area.id}
+          areaName={area.name}
+          onClose={() => setRequesting(false)}
+        />
+      )}
 
       {adding ? (
         <input

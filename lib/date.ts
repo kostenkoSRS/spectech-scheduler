@@ -107,6 +107,15 @@ export function periodRange(key: string, period: ExportPeriod): { start: string;
   }
 }
 
+export function datesInMonth(year: number, month: number): string[] {
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const out: string[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    out.push(toDateKey(new Date(year, month, d)));
+  }
+  return out;
+}
+
 export function eachDateKeyInRange(start: string, end: string): string[] {
   const out: string[] = [];
   let cur = start;

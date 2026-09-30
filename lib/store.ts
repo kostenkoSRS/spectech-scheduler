@@ -6,6 +6,7 @@ import {
   Equipment,
   EquipmentStatus,
   PLAN_SUMMARY_ID,
+  DISTRIBUTION_SUMMARY_ID,
   PlanColumn,
   Section,
   TransferEntry,
@@ -19,19 +20,60 @@ function makeId(): string {
   return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+// Фиксированный список РЭС — вкладки не создаются/переименовываются/удаляются
+// вручную. В "Распределении спец техники" — 10 РЭС (включая СМИА), в "Плане
+// работ на день" — те же, кроме СМИА.
+const DISTRIBUTION_RES_NAMES = [
+  "АРЭС",
+  "АпРЭС",
+  "БРЭС",
+  "ВРЭС",
+  "ВУРЭС",
+  "ЗРЭС",
+  "ЛРЭС",
+  "ПРЭС",
+  "ПрРЭС",
+  "СМИА",
+];
+const PLAN_RES_NAMES = DISTRIBUTION_RES_NAMES.filter((n) => n !== "СМИА");
+
+function sectionsForResName(name: string): Section[] {
+  const sections: Section[] = [];
+  if (DISTRIBUTION_RES_NAMES.includes(name)) sections.push("distribution");
+  if (PLAN_RES_NAMES.includes(name)) sections.push("dailyPlan");
+  return sections;
+}
+
+// Приводит список вкладок к фиксированному набору РЭС: сохраняет данные уже
+// существующих (по названию) вкладок РЭС, создаёт недостающие пустыми и
+// убирает всё, что в список РЭС не входит (вкладки, добавленные вручную).
+function reconcileFixedAreas(areas: Area[]): Area[] {
+  const allNames = Array.from(new Set([...DISTRIBUTION_RES_NAMES, ...PLAN_RES_NAMES]));
+  return allNames.map((name) => {
+    const existing = areas.find((a) => a.name === name);
+    if (existing) {
+      return { ...existing, sections: sectionsForResName(name) };
+    }
+    return {
+      id: makeId(),
+      name,
+      sections: sectionsForResName(name),
+      equipment: [],
+      planRows: [],
+    };
+  });
+}
+
 interface StoreState {
   activeSection: Section;
   setActiveSection: (section: Section) => void;
 
-  // Вкладки (районы) общие для обоих разделов: одна и та же вкладка несёт
-  // и технику (equipment), и строки плана (planRows).
+  // Вкладки — фиксированный список РЭС, общий для обоих разделов: одна и та
+  // же вкладка несёт и технику (equipment), и строки плана (planRows).
   areas: Area[];
   activeAreaId: string | null;
   activePlanViewId: string | null;
 
-  addArea: (name: string, sections: Section[]) => void;
-  renameArea: (areaId: string, name: string) => void;
-  removeArea: (areaId: string) => void;
   setActiveArea: (areaId: string) => void;
   setActivePlanView: (viewId: string) => void;
 
@@ -73,24 +115,16 @@ interface StoreState {
 }
 
 function seedAreas(): Area[] {
-  const areaId = makeId();
-  const equipmentId = makeId();
   const equipment: Equipment = {
-    id: equipmentId,
+    id: makeId(),
     name: "Экскаватор №1",
     jobs: [],
     transfers: [],
     status: { type: "operational" },
   };
-  return [
-    {
-      id: areaId,
-      name: "Район 1",
-      sections: ["distribution", "dailyPlan"],
-      equipment: [equipment],
-      planRows: [],
-    },
-  ];
+  return reconcileFixedAreas([]).map((a, i) =>
+    i === 0 ? { ...a, equipment: [equipment] } : a
+  );
 }
 
 export const useStore = create<StoreState>()(
@@ -100,39 +134,8 @@ export const useStore = create<StoreState>()(
       setActiveSection: (section) => set({ activeSection: section }),
 
       areas: [],
-      activeAreaId: null,
+      activeAreaId: DISTRIBUTION_SUMMARY_ID,
       activePlanViewId: PLAN_SUMMARY_ID,
-
-      addArea: (name, sections) =>
-        set((state) => {
-          const area: Area = { id: makeId(), name, sections, equipment: [], planRows: [] };
-          return {
-            areas: [...state.areas, area],
-            activeAreaId: sections.includes("distribution")
-              ? area.id
-              : state.activeAreaId,
-            activePlanViewId: sections.includes("dailyPlan")
-              ? area.id
-              : state.activePlanViewId,
-          };
-        }),
-
-      renameArea: (areaId, name) =>
-        set((state) => ({
-          areas: state.areas.map((a) => (a.id === areaId ? { ...a, name } : a)),
-        })),
-
-      removeArea: (areaId) =>
-        set((state) => {
-          const areas = state.areas.filter((a) => a.id !== areaId);
-          const activeAreaId =
-            state.activeAreaId === areaId
-              ? areas[0]?.id ?? null
-              : state.activeAreaId;
-          const activePlanViewId =
-            state.activePlanViewId === areaId ? PLAN_SUMMARY_ID : state.activePlanViewId;
-          return { areas, activeAreaId, activePlanViewId };
-        }),
 
       setActiveArea: (areaId) => set({ activeAreaId: areaId }),
       setActivePlanView: (viewId) => set({ activePlanViewId: viewId }),
@@ -365,17 +368,20 @@ export const useStore = create<StoreState>()(
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         if (state.areas.length === 0) {
-          const seeded = seedAreas();
-          state.areas = seeded;
-          state.activeAreaId = seeded[0].id;
+          state.areas = seedAreas();
         } else {
-          // миграция: у вкладок, созданных раньше, может не быть полей
-          // planRows/sections — по умолчанию считаем их общими для обоих разделов
-          state.areas = state.areas.map((a) => ({
-            ...a,
-            planRows: a.planRows ?? [],
-            sections: a.sections ?? ["distribution", "dailyPlan"],
-          }));
+          // миграция: старым вкладкам может не хватать planRows; а сам набор
+          // вкладок приводим к фиксированному списку РЭС (лишние — убираем,
+          // недостающие — создаём пустыми, существующие данные сохраняем)
+          state.areas = reconcileFixedAreas(
+            state.areas.map((a) => ({ ...a, planRows: a.planRows ?? [] }))
+          );
+        }
+        if (!state.areas.some((a) => a.id === state.activeAreaId)) {
+          state.activeAreaId = DISTRIBUTION_SUMMARY_ID;
+        }
+        if (!state.areas.some((a) => a.id === state.activePlanViewId)) {
+          state.activePlanViewId = PLAN_SUMMARY_ID;
         }
       },
     }
@@ -385,7 +391,6 @@ export const useStore = create<StoreState>()(
 export function ensureSeed() {
   const state = useStore.getState();
   if (state.areas.length === 0) {
-    const seeded = seedAreas();
-    useStore.setState({ areas: seeded, activeAreaId: seeded[0].id });
+    useStore.setState({ areas: seedAreas() });
   }
 }
