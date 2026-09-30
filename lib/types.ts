@@ -65,6 +65,26 @@ export interface Area {
   planRows: PlanRow[];
 }
 
+export type EquipmentRequestStatus = "pending" | "declined";
+
+// Запрос техники одним РЭС у другого. Пока не одобрен — "pending" (виден
+// владельцу для решения). Одобренный запрос сразу превращается в обычную
+// переброску (TransferEntry) и удаляется отсюда. Отклонённый остаётся здесь
+// со статусом "declined", пока запрашивавший РЭС не нажмёт "Ознакомлен".
+export interface EquipmentRequest {
+  id: string;
+  date: string; // YYYY-MM-DD
+  startTime: string;
+  endTime: string;
+  title: string;
+  address: string;
+  importance: Importance;
+  sourceAreaId: string; // РЭС-владелец техники
+  sourceEquipmentId: string;
+  targetAreaId: string; // РЭС, который запрашивает технику
+  status: EquipmentRequestStatus;
+}
+
 export const IMPORTANCE_LABELS: Record<Importance, string> = {
   low: "Низкая",
   medium: "Средняя",

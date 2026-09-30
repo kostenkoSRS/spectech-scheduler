@@ -4,6 +4,7 @@ import {
   Area,
   ColumnScope,
   Equipment,
+  EquipmentRequest,
   EquipmentStatus,
   PLAN_SUMMARY_ID,
   DISTRIBUTION_SUMMARY_ID,
@@ -112,6 +113,12 @@ interface StoreState {
 
   addPlanColumn: (title: string, scope: ColumnScope) => void;
   removePlanColumn: (columnId: string) => void;
+
+  equipmentRequests: EquipmentRequest[];
+  addEquipmentRequest: (request: Omit<EquipmentRequest, "id" | "status">) => void;
+  approveEquipmentRequest: (requestId: string) => void;
+  declineEquipmentRequest: (requestId: string) => void;
+  acknowledgeEquipmentRequest: (requestId: string) => void;
 }
 
 function seedAreas(): Area[] {
@@ -362,6 +369,64 @@ export const useStore = create<StoreState>()(
         set((state) => ({
           planColumns: state.planColumns.filter((c) => c.id !== columnId),
         })),
+
+      equipmentRequests: [],
+
+      addEquipmentRequest: (request) =>
+        set((state) => ({
+          equipmentRequests: [
+            ...state.equipmentRequests,
+            { ...request, id: makeId(), status: "pending" },
+          ],
+        })),
+
+      approveEquipmentRequest: (requestId) =>
+        set((state) => {
+          const req = state.equipmentRequests.find((r) => r.id === requestId);
+          if (!req) return state;
+          return {
+            equipmentRequests: state.equipmentRequests.filter((r) => r.id !== requestId),
+            areas: state.areas.map((a) =>
+              a.id === req.sourceAreaId
+                ? {
+                    ...a,
+                    equipment: a.equipment.map((e) =>
+                      e.id === req.sourceEquipmentId
+                        ? {
+                            ...e,
+                            transfers: [
+                              ...e.transfers,
+                              {
+                                id: makeId(),
+                                date: req.date,
+                                startTime: req.startTime,
+                                endTime: req.endTime,
+                                title: req.title,
+                                address: req.address,
+                                importance: req.importance,
+                                targetAreaId: req.targetAreaId,
+                              },
+                            ],
+                          }
+                        : e
+                    ),
+                  }
+                : a
+            ),
+          };
+        }),
+
+      declineEquipmentRequest: (requestId) =>
+        set((state) => ({
+          equipmentRequests: state.equipmentRequests.map((r) =>
+            r.id === requestId ? { ...r, status: "declined" } : r
+          ),
+        })),
+
+      acknowledgeEquipmentRequest: (requestId) =>
+        set((state) => ({
+          equipmentRequests: state.equipmentRequests.filter((r) => r.id !== requestId),
+        })),
     }),
     {
       name: "spectech-scheduler-storage",
@@ -383,6 +448,7 @@ export const useStore = create<StoreState>()(
         if (!state.areas.some((a) => a.id === state.activePlanViewId)) {
           state.activePlanViewId = PLAN_SUMMARY_ID;
         }
+        state.equipmentRequests = state.equipmentRequests ?? [];
       },
     }
   )

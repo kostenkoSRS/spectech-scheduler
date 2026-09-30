@@ -31,7 +31,7 @@ export default function RequestEquipmentModal({
   onClose: () => void;
 }) {
   const areas = useStore((s) => s.areas);
-  const addTransfer = useStore((s) => s.addTransfer);
+  const addEquipmentRequest = useStore((s) => s.addEquipmentRequest);
 
   const [date, setDate] = useState(toDateKey(new Date()));
   const [picked, setPicked] = useState<{ area: Area; equipment: Equipment } | null>(null);
@@ -63,13 +63,15 @@ export default function RequestEquipmentModal({
 
   function handleSave() {
     if (!picked || !title.trim() || !address.trim()) return;
-    addTransfer(picked.area.id, picked.equipment.id, {
+    addEquipmentRequest({
       date,
       startTime,
       endTime,
       title: title.trim(),
       address: address.trim(),
       importance,
+      sourceAreaId: picked.area.id,
+      sourceEquipmentId: picked.equipment.id,
       targetAreaId: areaId,
     });
     onClose();
@@ -140,9 +142,13 @@ export default function RequestEquipmentModal({
               disabled={!title.trim() || !address.trim()}
               className="flex-1 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-200"
             >
-              Отправить запрос
+              Отправить на согласование
             </button>
           </div>
+          <p className="text-xs text-sky-400">
+            Запрос появится у «{picked.area.name}» для одобрения. Пока не одобрят, техника не
+            считается занятой.
+          </p>
         </div>
       </Modal>
     );

@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 
 function sanitizeSheetName(name: string): string {
   const cleaned = name.replace(/[:\\/?*\[\]]/g, " ").trim();
@@ -75,4 +75,57 @@ export function exportRowsToExcel(
   mergeColumn?: string
 ) {
   exportSheetsToExcel(fileBaseName, [{ name: sheetName, rows, mergeColumn }]);
+}
+
+export interface GridCell {
+  value: string;
+  bgHex?: string; // без "#", например "FDE68A"
+  bold?: boolean;
+  header?: boolean;
+}
+
+export interface GridMerge {
+  s: { r: number; c: number };
+  e: { r: number; c: number };
+}
+
+// Экспорт "как на сайте" — таблица-календарь с закраской ячеек, как в интерфейсе.
+export function exportGridToExcel(
+  fileBaseName: string,
+  sheetName: string,
+  rows: GridCell[][],
+  merges: GridMerge[] = [],
+  colWidths?: number[]
+) {
+  const aoa = rows.map((row) => row.map((c) => c.value));
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  rows.forEach((row, r) => {
+    row.forEach((cell, c) => {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      const style: Record<string, unknown> = {
+        alignment: { vertical: "top", wrapText: true },
+      };
+      if (cell.bgHex) {
+        style.fill = { patternType: "solid", fgColor: { rgb: cell.bgHex } };
+      }
+      if (cell.header) {
+        style.font = { bold: true };
+        style.fill = { patternType: "solid", fgColor: { rgb: "E0F2FE" } };
+      }
+      if (cell.bold) {
+        style.font = { ...(style.font as object), bold: true };
+      }
+      if (ws[addr]) {
+        ws[addr].s = style;
+      }
+    });
+  });
+
+  if (merges.length) ws["!merges"] = merges;
+  if (colWidths) ws["!cols"] = colWidths.map((w) => ({ wch: w }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeSheetName(sheetName));
+  XLSX.writeFile(wb, `${sanitizeFileName(fileBaseName)}.xlsx`);
 }
